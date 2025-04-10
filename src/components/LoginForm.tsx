@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { toast } from "sonner";
 
 export const LoginForm: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -31,6 +32,26 @@ export const LoginForm: React.FC = () => {
     } catch (error) {
       console.error("Login error:", error);
     }
+  };
+
+  const handleQuickLogin = (role: UserRole) => {
+    const email = role === "patient" ? "patient@example.com" : 
+                  role === "driver" ? "driver@example.com" : 
+                  "doctor@example.com";
+    
+    setEmail(email);
+    setRole(role);
+    setPassword("password"); // Any password works for demo
+    
+    // Submit the form after setting the values
+    login(email, "password", role)
+      .then(() => {
+        navigate(`/${role}`);
+        toast.success(`Logged in as ${role}`);
+      })
+      .catch(error => {
+        console.error("Login error:", error);
+      });
   };
 
   return (
@@ -97,7 +118,7 @@ export const LoginForm: React.FC = () => {
             </div>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex-col space-y-4">
           <Button
             type="submit"
             className="w-full"
@@ -105,6 +126,36 @@ export const LoginForm: React.FC = () => {
           >
             {isLoading ? "Signing in..." : "Sign In"}
           </Button>
+
+          <div className="w-full border-t pt-4">
+            <p className="text-sm text-center mb-2">Quick Access Buttons</p>
+            <div className="grid grid-cols-3 gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleQuickLogin("patient")}
+              >
+                Patient
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleQuickLogin("driver")}
+              >
+                Driver
+              </Button>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleQuickLogin("doctor")}
+              >
+                Doctor
+              </Button>
+            </div>
+          </div>
         </CardFooter>
       </form>
     </Card>
