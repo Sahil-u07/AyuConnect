@@ -1,13 +1,49 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTracking } from '../contexts/TrackingContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Ambulance, Clock, AlertTriangle } from 'lucide-react';
+import { Activity, Ambulance, Clock, AlertTriangle, Users, BarChart } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useAuth } from '../contexts/AuthContext';
+
+// Test data for patient statistics
+const patientStats = {
+  admittedToday: 8,
+  dischargedToday: 5,
+  waitingForBeds: 3,
+  inTransit: 2
+};
+
+// Test data for doctor on-call schedule
+const onCallSchedule = [
+  { id: 1, name: "Dr. Johnson", specialty: "Emergency Medicine", startTime: "08:00", endTime: "20:00" },
+  { id: 2, name: "Dr. Patel", specialty: "Trauma Surgery", startTime: "20:00", endTime: "08:00" },
+  { id: 3, name: "Dr. Williams", specialty: "Cardiology", startTime: "12:00", endTime: "00:00" },
+];
+
+// Test data for recent patients
+const recentPatients = [
+  { id: "PAT-7832", name: "Emily Clark", age: 34, condition: "Trauma - MVA", status: "Critical", arrivalTime: "10:23 AM" },
+  { id: "PAT-7836", name: "Robert Chen", age: 56, condition: "Chest Pain", status: "Stable", arrivalTime: "11:45 AM" },
+  { id: "PAT-7841", name: "Sarah Johnson", age: 28, condition: "Respiratory Distress", status: "Serious", arrivalTime: "12:10 PM" },
+  { id: "PAT-7844", name: "Michael Wong", age: 42, condition: "Fall Injury", status: "Stable", arrivalTime: "12:35 PM" },
+];
 
 const DoctorDashboard: React.FC = () => {
   const { ambulances } = useTracking();
+  const { user } = useAuth();
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Update time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    
+    return () => clearInterval(timer);
+  }, []);
   
   // Get ambulances with patients
   const activeAmbulances = ambulances.filter(amb => 
@@ -21,20 +57,84 @@ const DoctorDashboard: React.FC = () => {
     return 0;
   });
 
+  // Format current time for display
+  const formattedTime = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formattedDate = currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Doctor Dashboard</h1>
-        <Badge className="bg-emergency hover:bg-emergency/80">
-          {activeAmbulances.length} Active Transport{activeAmbulances.length !== 1 && 's'}
-        </Badge>
+        <div>
+          <h1 className="text-2xl font-bold">Doctor Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back, {user?.name || "Doctor"}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-medium">{formattedTime}</p>
+          <p className="text-sm text-muted-foreground">{formattedDate}</p>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <Users className="h-4 w-4 text-muted-foreground mr-2" />
+              <span className="text-2xl font-bold">{patientStats.admittedToday + patientStats.inTransit}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">+{patientStats.inTransit} incoming</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">In Transit</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <Ambulance className="h-4 w-4 text-muted-foreground mr-2" />
+              <span className="text-2xl font-bold">{activeAmbulances.length}</span>
+            </div>
+            <Badge className="mt-1 bg-emergency hover:bg-emergency/80">
+              {activeAmbulances.filter(a => a.status === 'transporting').length} Critical
+            </Badge>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Wait Time</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <Clock className="h-4 w-4 text-muted-foreground mr-2" />
+              <span className="text-2xl font-bold">18 min</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Average wait time</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Bed Capacity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center">
+              <Activity className="h-4 w-4 text-muted-foreground mr-2" />
+              <span className="text-2xl font-bold">85%</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">{patientStats.waitingForBeds} patients waiting</p>
+          </CardContent>
+        </Card>
       </div>
       
       <Tabs defaultValue="incoming">
         <TabsList className="grid grid-cols-3 mb-4">
           <TabsTrigger value="incoming">Incoming Patients</TabsTrigger>
-          <TabsTrigger value="vitals">Patient Vitals</TabsTrigger>
-          <TabsTrigger value="stats">Statistics</TabsTrigger>
+          <TabsTrigger value="recent">Recent Arrivals</TabsTrigger>
+          <TabsTrigger value="staff">On-Call Staff</TabsTrigger>
         </TabsList>
         
         <TabsContent value="incoming" className="space-y-4">
@@ -108,73 +208,76 @@ const DoctorDashboard: React.FC = () => {
           )}
         </TabsContent>
         
-        <TabsContent value="vitals">
+        <TabsContent value="recent">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
-                Patient Vitals Monitoring
-              </CardTitle>
+              <CardTitle>Recent Patient Arrivals</CardTitle>
               <CardDescription>
-                Real-time health metrics from active transports
+                Patients admitted within the last 4 hours
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {urgentCases.filter(a => a.patientVitals).length > 0 ? (
-                <div className="space-y-6">
-                  {urgentCases
-                    .filter(a => a.patientVitals)
-                    .map(ambulance => (
-                      <div key={ambulance.id} className="border-b pb-4 last:border-0">
-                        <h4 className="text-sm font-medium mb-3">
-                          Patient ID: {ambulance.patientId} (Ambulance {ambulance.id})
-                        </h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          {ambulance.patientVitals && Object.entries(ambulance.patientVitals).map(([key, value]) => {
-                            let isAbnormal = false;
-                            
-                            // Simple check for abnormal values (would be more sophisticated in real app)
-                            if (key === 'heartRate' && (Number(value) > 100 || Number(value) < 60)) isAbnormal = true;
-                            if (key === 'oxygenLevel' && Number(value) < 95) isAbnormal = true;
-                            if (key === 'temperature' && (Number(value) > 38 || Number(value) < 36)) isAbnormal = true;
-                            
-                            return (
-                              <div key={key} className={`flex flex-col p-3 rounded-lg border ${isAbnormal ? 'border-emergency/50 bg-emergency/5' : ''}`}>
-                                <div className="flex justify-between items-center">
-                                  <span className="vital-value">{value}</span>
-                                  {isAbnormal && <AlertTriangle className="h-4 w-4 text-emergency" />}
-                                </div>
-                                <span className="vital-label">
-                                  {key.replace(/([A-Z])/g, ' $1').trim()}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No active patient vitals to display
-                </div>
-              )}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Condition</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Arrival Time</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentPatients.map((patient) => (
+                    <TableRow key={patient.id}>
+                      <TableCell className="font-medium">{patient.id}</TableCell>
+                      <TableCell>{patient.name}, {patient.age}</TableCell>
+                      <TableCell>{patient.condition}</TableCell>
+                      <TableCell>
+                        <Badge className={
+                          patient.status === 'Critical' ? "bg-emergency" : 
+                          patient.status === 'Serious' ? "bg-warning" : 
+                          "bg-success"
+                        }>
+                          {patient.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{patient.arrivalTime}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
         
-        <TabsContent value="stats">
+        <TabsContent value="staff">
           <Card>
             <CardHeader>
-              <CardTitle>Response Time Statistics</CardTitle>
+              <CardTitle>On-Call Schedule</CardTitle>
               <CardDescription>
-                Average response and transport times
+                Emergency department staff currently on duty
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-                <p>Statistics visualization will be displayed here</p>
-              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Specialty</TableHead>
+                    <TableHead>Hours</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {onCallSchedule.map((doctor) => (
+                    <TableRow key={doctor.id}>
+                      <TableCell className="font-medium">{doctor.name}</TableCell>
+                      <TableCell>{doctor.specialty}</TableCell>
+                      <TableCell>{doctor.startTime} - {doctor.endTime}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
