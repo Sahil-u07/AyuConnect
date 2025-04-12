@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import { AuthProvider } from "./contexts/AuthContext";
 import { TrackingProvider } from "./contexts/TrackingContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { AppLayout } from "./components/AppLayout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -27,40 +28,42 @@ const App: React.FC = () => {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TrackingProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route element={<AppLayout />}>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/login" element={<Login />} />
-                    
-                    {/* Protected routes */}
-                    <Route path="/patient" element={
-                      <ProtectedRoute allowedRoles={['patient']}>
-                        <PatientDashboard />
-                      </ProtectedRoute>
-                    } />
-                    
-                    <Route path="/driver" element={
-                      <ProtectedRoute allowedRoles={['driver']}>
-                        <DriverDashboard />
-                      </ProtectedRoute>
-                    } />
-                    
-                    <Route path="/doctor" element={
-                      <ProtectedRoute allowedRoles={['doctor']}>
-                        <DoctorDashboard />
-                      </ProtectedRoute>
-                    } />
-                    
-                    {/* 404 Not Found route */}
-                    <Route path="*" element={<NotFound />} />
-                  </Route>
-                </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
+            <ThemeProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <Routes>
+                    <Route element={<AppLayout />}>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/login" element={<Login />} />
+                      
+                      {/* Protected routes */}
+                      <Route path="/patient" element={
+                        <ProtectedRoute allowedRoles={['patient']}>
+                          <PatientDashboard />
+                        </ProtectedRoute>
+                      } />
+                      
+                      <Route path="/driver" element={
+                        <ProtectedRoute allowedRoles={['driver']}>
+                          <DriverDashboard />
+                        </ProtectedRoute>
+                      } />
+                      
+                      <Route path="/doctor" element={
+                        <ProtectedRoute allowedRoles={['doctor']}>
+                          <DoctorDashboard />
+                        </ProtectedRoute>
+                      } />
+                      
+                      {/* 404 Not Found route */}
+                      <Route path="*" element={<NotFound />} />
+                    </Route>
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </ThemeProvider>
           </TrackingProvider>
         </AuthProvider>
       </QueryClientProvider>
