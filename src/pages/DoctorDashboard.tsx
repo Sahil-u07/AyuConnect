@@ -70,7 +70,7 @@ const DoctorDashboard: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
   
-  // Live heart rate monitoring effect
+  // Live heart rate monitoring effect - removed alerts
   useEffect(() => {
     if (!isMonitoring || !selectedPatientId) return;
     
@@ -92,14 +92,6 @@ const DoctorDashboard: React.FC = () => {
         }
         
         newValue = Math.round(Math.max(40, Math.min(180, newValue))); // Keep within reasonable limits
-        
-        // Check for dangerous values and notify
-        if (newValue > 120 || newValue < 50) {
-          toast.warning(
-            `Patient ${selectedPatientId} heart rate alert: ${newValue} bpm`, 
-            { description: "Abnormal heart rate detected" }
-          );
-        }
         
         // Keep the last 15 points
         const newData = [...prevData.slice(-14), { time: timeString, value: newValue }];
