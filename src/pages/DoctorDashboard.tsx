@@ -1,12 +1,13 @@
-
 import React, { useEffect, useState } from 'react';
 import { useTracking } from '../contexts/TrackingContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Activity, Ambulance, Clock, AlertTriangle, Users, BarChart } from 'lucide-react';
+import { Activity, Ambulance, Clock, AlertTriangle, Users, BarChart, Heart, HeartPulse } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '../contexts/AuthContext';
+import VitalsChart, { VitalDataPoint } from '@/components/VitalsChart';
+import { toast } from 'sonner';
 
 // Test data for patient statistics
 const patientStats = {
@@ -31,10 +32,34 @@ const recentPatients = [
   { id: "PAT-7844", name: "Michael Wong", age: 42, condition: "Fall Injury", status: "Stable", arrivalTime: "12:35 PM" },
 ];
 
+// Generate initial heart rate data (last 15 minutes at 1 minute intervals)
+const generateInitialHeartRateData = (): VitalDataPoint[] => {
+  const data: VitalDataPoint[] = [];
+  const now = new Date();
+  
+  for (let i = 15; i >= 0; i--) {
+    const time = new Date(now.getTime() - i * 60000);
+    const timeString = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    // Generate somewhat realistic heart rate values
+    const baseHeartRate = 72;  // Average resting heart rate
+    const variation = Math.random() * 15 - 7.5;  // Random variation between -7.5 and +7.5
+    data.push({
+      time: timeString,
+      value: Math.round(baseHeartRate + variation)
+    });
+  }
+  
+  return data;
+};
+
 const DoctorDashboard: React.FC = () => {
   const { ambulances } = useTracking();
   const { user } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [heartRateData, setHeartRateData] = useState<VitalDataPoint[]>(generateInitialHeartRateData());
+  const [isMonitoring, setIsMonitoring] = useState(false);
   
   // Update time every minute
   useEffect(() => {
@@ -44,6 +69,46 @@ const DoctorDashboard: React.FC = () => {
     
     return () => clearInterval(timer);
   }, []);
+  
+  // Live heart rate monitoring effect
+  useEffect(() => {
+    if (!isMonitoring || !selectedPatientId) return;
+    
+    // Update heart rate every 3 seconds
+    const heartRateInterval = setInterval(() => {
+      const now = new Date();
+      const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      setHeartRateData(prevData => {
+        // Get the last heart rate value as a base
+        const lastValue = prevData[prevData.length - 1]?.value || 72;
+        
+        // Calculate new value with variation
+        let newValue = lastValue + (Math.random() * 10 - 5); // Random variation between -5 and +5
+        
+        // Add occasional spikes for interest (10% chance)
+        if (Math.random() < 0.1) {
+          newValue += Math.random() < 0.5 ? 15 : -15;
+        }
+        
+        newValue = Math.round(Math.max(40, Math.min(180, newValue))); // Keep within reasonable limits
+        
+        // Check for dangerous values and notify
+        if (newValue > 120 || newValue < 50) {
+          toast.warning(
+            `Patient ${selectedPatientId} heart rate alert: ${newValue} bpm`, 
+            { description: "Abnormal heart rate detected" }
+          );
+        }
+        
+        // Keep the last 15 points
+        const newData = [...prevData.slice(-14), { time: timeString, value: newValue }];
+        return newData;
+      });
+    }, 3000);
+    
+    return () => clearInterval(heartRateInterval);
+  }, [isMonitoring, selectedPatientId]);
   
   // Get ambulances with patients
   const activeAmbulances = ambulances.filter(amb => 
@@ -61,6 +126,19 @@ const DoctorDashboard: React.FC = () => {
   const formattedTime = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const formattedDate = currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
 
+  // Handle starting monitoring for a patient
+  const handleStartMonitoring = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setIsMonitoring(true);
+    toast.success(`Started monitoring patient ${patientId}`);
+  };
+
+  // Handle stopping monitoring
+  const handleStopMonitoring = () => {
+    setIsMonitoring(false);
+    toast.info(`Stopped monitoring patient ${selectedPatientId}`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -73,6 +151,59 @@ const DoctorDashboard: React.FC = () => {
           <p className="text-sm text-muted-foreground">{formattedDate}</p>
         </div>
       </div>
+      
+      {/* Live monitoring section - only shown when monitoring is active */}
+      {isMonitoring && selectedPatientId && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <HeartPulse className="h-5 w-5 text-red-500" />
+              Live Monitoring - Patient {selectedPatientId}
+            </h2>
+            <button 
+              onClick={handleStopMonitoring}
+              className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+            >
+              Stop Monitoring
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <VitalsChart
+              title="Heart Rate"
+              data={heartRateData}
+              unit="bpm"
+              normalRange={{ min: 60, max: 100 }}
+              color="#dc2626"
+              className="col-span-2"
+            />
+            
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Patient Vitals</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Blood Pressure</p>
+                  <p className="text-lg font-semibold">120/80 mmHg</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Oxygen Level</p>
+                  <p className="text-lg font-semibold">98%</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Temperature</p>
+                  <p className="text-lg font-semibold">37.2°C</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Respiratory Rate</p>
+                  <p className="text-lg font-semibold">16 rpm</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -193,6 +324,21 @@ const DoctorDashboard: React.FC = () => {
                             <span className="text-xs text-gray-500">SpO2</span>
                           </div>
                         </div>
+                        <div className="mt-3 flex justify-end">
+                          {isMonitoring && selectedPatientId === ambulance.patientId ? (
+                            <span className="text-sm text-green-500 flex items-center gap-1">
+                              <HeartPulse className="h-4 w-4" />
+                              Monitoring
+                            </span>
+                          ) : (
+                            <button 
+                              className="text-sm text-blue-500 hover:text-blue-700"
+                              onClick={() => handleStartMonitoring(ambulance.patientId || 'unknown')}
+                            >
+                              Start Monitoring
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -225,6 +371,7 @@ const DoctorDashboard: React.FC = () => {
                     <TableHead>Condition</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Arrival Time</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -243,6 +390,23 @@ const DoctorDashboard: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>{patient.arrivalTime}</TableCell>
+                      <TableCell>
+                        {isMonitoring && selectedPatientId === patient.id ? (
+                          <button
+                            onClick={handleStopMonitoring}
+                            className="text-sm text-red-500 hover:text-red-700"
+                          >
+                            Stop Monitoring
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleStartMonitoring(patient.id)}
+                            className="text-sm text-blue-500 hover:text-blue-700"
+                          >
+                            Monitor Vitals
+                          </button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
